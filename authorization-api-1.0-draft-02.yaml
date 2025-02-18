@@ -1,0 +1,236 @@
+openapi: 3.0.3
+info:
+  title: AuthZEN Authorization API
+  description: |-
+    The Authorization API enables Policy Decision Points (PDPs) and Policy Enforcement Points (PEPs) to communicate authorization requests and decisions to each other without requiring knowledge of each other's inner workings. The Authorization API is served by the PDP and is called by the PEP. The Authorization API includes an Evaluation endpoint, which provides specific access decisions.
+  contact: 
+    name: AuthZEN Working Group
+    email: openid-specs-authzen@lists.openid.net
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  version: 1.0 - draft 02
+externalDocs:
+  description: Specification
+  url: https://openid.net/specs/authorization-api-1_0-02.html
+tags:
+  - name: evaluation
+    description: Access evaluation
+paths:
+  /evaluation:
+    post:
+      tags:
+        - evaluation
+      summary: Evaluate access request
+      description: Execute a single access evaluation
+      operationId: evaluation
+      requestBody:
+        description: Access evaluation request
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EvaluationRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationResponse'          
+        '400':
+          description: Bad request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '500':
+          description: Internal Error
+  /evaluations:
+    post:
+      tags:
+        - evaluation
+      summary: Evaluate multiple access requests
+      description: Execute a number of access evaluation requests with given defaults
+      operationId: evaluations
+      requestBody:
+        description: Access evaluations request
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EvaluationsRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationsResponse'          
+        '400':
+          description: Bad request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '500':
+          description: Internal Error
+components:
+  schemas:
+    Subject:
+      type: object
+      description: A Subject is the user or robotic principal about whom the Authorization API is being invoked. The Subject may be requesting access at the time the Authorization API is invoked.
+      required:
+        - type
+        - id
+      properties:
+        type:
+          type: string
+          description: A string value that specifies the type of the Subject.
+          example: user
+        id:
+          type: string
+          description: The unique identifier of the Subject, scoped to the type.         
+          example: alice@example.com
+        properties:
+          type: object
+          description: An object containing key-value pairs which express additional properties of a Subject.
+          example:
+            department: Sales
+            ip_address: 172.217.22.14
+            device_id: 8:65:ee:17:7e:0b
+    Action:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: The name of the type of Action.
+          example: can_read
+        properties:
+          type: object
+          description: An object containing key-value pairs which express additional properties of an Action.          
+    Resource:
+      type: object
+      description: A resource is the target of an access request.
+      required:
+        - type
+        - id
+      properties:
+        type:
+          type: string
+          description: A string value that specifies the type of the Resource.
+          example: book
+        id:
+          type: string
+          description: The unique identifier of the Resource, scoped to the type.
+          example: '123'
+        properties:
+          type: object
+          description: An object containing key-value pairs which express additional properties of a Resource.
+          example: 
+            library_record:
+              title: AuthZEN in Action
+              isbn: 978-0593383322
+    Context:
+      type: object
+      description: The context contains attributes that represent environmental or contextual information.
+      example:
+        time: 1985-10-26T01:22-07:00
+    Decision:
+      type: object
+      required:
+        - decision
+      properties:
+        decision:
+          type: boolean
+          example: true
+        context:
+          type: object
+    EvaluationRequest:
+      type: object
+      required:
+        - subject
+        - action
+        - resource
+      properties:
+        subject:
+          $ref: '#/components/schemas/Subject'
+        action:
+          $ref: '#/components/schemas/Action'
+        resource:
+          $ref: '#/components/schemas/Resource'
+        context:
+          $ref: '#/components/schemas/Context'
+    EvaluationResponse:
+      $ref: '#/components/schemas/Decision'
+    EvaluationsRequest:
+      type: object
+      required:
+        - evaluations
+      properties:
+        subject:
+          $ref: '#/components/schemas/Subject'
+        action:
+          $ref: '#/components/schemas/Action'
+        resource:
+          $ref: '#/components/schemas/Resource'
+        context:
+          $ref: '#/components/schemas/Context'
+        evaluations:
+          type: array
+          items: 
+            type: object
+            properties:
+              subject:
+                $ref: '#/components/schemas/Subject'
+              action:
+                $ref: '#/components/schemas/Action'
+              resource:
+                $ref: '#/components/schemas/Resource'
+              context:
+                $ref: '#/components/schemas/Context'
+        options:
+          type: object
+          example:
+            evaluation_semantics: execute_all
+      example:
+        subject:
+          type: user
+          id: alice@acmecorp.com
+        context:
+          time: 2024-05-31T15:22-07:00
+        action:
+          name: can_read
+        evaluations:
+        - resource:
+            type: document
+            id: boxcarring.md
+        - resource:
+            type: document
+            id: subject-search.md
+        - action:
+            name: can_edit
+          resource:
+            type: document
+            id: resource-search.md
+    EvaluationsResponse:
+      type: object
+      required:
+        - evaluations
+      properties:
+        evaluations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Decision'
+          example:
+            - decision: true
+            - decision: false
+              context:
+                error:
+                  status: 404
+                  message: Resource not found
+            - decision: false
+              context:
+                reason: Subject is a viewer of the resource
